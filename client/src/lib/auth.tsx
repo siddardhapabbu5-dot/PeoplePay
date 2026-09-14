@@ -13,7 +13,7 @@ export type SessionUser = {
 type AuthCtx = {
   user: SessionUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (login: string, password: string, portal?: "admin" | "staff") => Promise<void>;
   logout: () => void;
   can: (...roles: Role[]) => boolean;
 };
@@ -41,18 +41,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AuthCtx>(() => ({
     user,
     loading,
-    async login(email, password) {
+    async login(login, password, portal = "admin") {
       const res = await api<{ token: string; user: SessionUser }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ login, password, portal }),
       });
       setToken(res.token);
+      localStorage.setItem("peoplepay_portal", portal);
       setUser(res.user);
     },
     logout() {
+      const portal = localStorage.getItem("peoplepay_portal");
       clearToken();
+      localStorage.removeItem("peoplepay_portal");
       setUser(null);
-      window.location.href = "/login";
+      window.location.href = portal === "staff" ? "/staff-login" : "/login";
     },
     can(...roles) {
       if (!user) return false;

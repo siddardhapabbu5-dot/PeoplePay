@@ -42,8 +42,10 @@ attendanceRouter.get("/monthly", async (req, res) => {
   const month = Number(req.query.month ?? new Date().getMonth() + 1);
   const start = new Date(Date.UTC(year, month - 1, 1));
   const end = new Date(Date.UTC(year, month, 0));
+  const where: Record<string, unknown> = { date: { gte: start, lte: end } };
+  if (req.user!.role === "EMPLOYEE" && req.user!.employeeId) where.employeeId = req.user!.employeeId;
   const rows = await prisma.attendance.findMany({
-    where: { date: { gte: start, lte: end } },
+    where,
     include: { employee: true },
   });
   res.json({ year, month, days: monthDays(year, month), rows });

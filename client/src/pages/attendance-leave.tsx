@@ -2,7 +2,53 @@ import { useEffect, useState } from "react";
 import { api, download } from "@/lib/api";
 import { fullName } from "@/lib/utils";
 import { Button, Card, Input, LoadingState, Modal, Select, StatusBadge, Textarea } from "@/components/ui";
+import { PunchCard } from "@/components/punch-card";
 import { toast } from "sonner";
+
+export function StaffAttendancePage() {
+  const [rows, setRows] = useState<any[] | null>(null);
+  function load() {
+    const now = new Date();
+    const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString().slice(0, 10);
+    const to = new Date().toISOString().slice(0, 10);
+    api<any[]>(`/api/attendance?from=${from}&to=${to}`).then(setRows).catch(() => setRows([]));
+  }
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold">Attendance</h1>
+        <p className="text-sm text-slate-500">Punch in when you start work and punch out when you finish.</p>
+      </div>
+      <PunchCard />
+      <Card>
+        <h3 className="mb-3 font-semibold">This month</h3>
+        {!rows ? <LoadingState /> : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-xs uppercase text-slate-500">
+                <tr>{["Date", "In", "Out", "Hours", "OT", "Status"].map((h) => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {rows.slice(0, 40).map((r) => (
+                  <tr key={r.id} className="border-t border-slate-100">
+                    <td className="px-3 py-2">{r.date?.slice(0, 10)}</td>
+                    <td className="px-3 py-2">{r.punchIn ?? "—"}</td>
+                    <td className="px-3 py-2">{r.punchOut ?? "—"}</td>
+                    <td className="px-3 py-2">{Number(r.workingHours ?? 0).toFixed(2)}</td>
+                    <td className="px-3 py-2">{r.overtimeMin ?? 0}m</td>
+                    <td className="px-3 py-2"><StatusBadge status={r.status} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 export function AttendancePage() {
   const [tab, setTab] = useState("Daily");

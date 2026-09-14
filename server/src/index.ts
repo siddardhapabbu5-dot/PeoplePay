@@ -13,9 +13,11 @@ import { payrollRouter } from "./routes/payroll.js";
 import { payslipsRouter } from "./routes/payslips.js";
 import { expensesRouter, loansRouter } from "./routes/finance.js";
 import { approvalsRouter, dashboardRouter, reportsRouter, settingsRouter } from "./routes/misc.js";
+import { mobileRouter } from "./routes/mobile.js";
+import { locationsRouter } from "./routes/locations.js";
 
 const app = express();
-app.use(cors({ origin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "8mb" }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, name: "PeoplePay" }));
@@ -33,6 +35,9 @@ app.use("/api/approvals", requireAuth, approvalsRouter);
 app.use("/api/dashboard", requireAuth, dashboardRouter);
 app.use("/api/reports", requireAuth, reportsRouter);
 app.use("/api/settings", requireAuth, settingsRouter);
+app.use("/api", mobileRouter);
+app.use("/api/admin", requireAuth, locationsRouter);
+app.post("/api/auth/logout", requireAuth, (_req, res) => res.json({ ok: true }));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const clientDist = path.resolve(__dirname, "../../client/dist");

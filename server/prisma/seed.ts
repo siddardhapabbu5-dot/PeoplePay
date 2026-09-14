@@ -44,6 +44,12 @@ async function main() {
   await prisma.taxDeclaration.deleteMany();
   await prisma.attendanceRegularization.deleteMany();
   await prisma.overtime.deleteMany();
+  await prisma.breakRecord.deleteMany();
+  await prisma.punchRecord.deleteMany();
+  await prisma.employeeSiteAssignment.deleteMany();
+  await prisma.employeeHomeLocation.deleteMany();
+  await prisma.site.deleteMany();
+  await prisma.attendanceRule.deleteMany();
   await prisma.attendance.deleteMany();
   await prisma.leaveRequest.deleteMany();
   await prisma.leaveBalance.deleteMany();
@@ -72,8 +78,8 @@ async function main() {
 
   const company = await prisma.company.create({
     data: {
-      name: "GMR Engineering and Automation",
-      legalName: "GMR Engineering and Automation Pvt Ltd",
+      name: "GMR",
+      legalName: "GMR",
       address: "Hyderabad",
       city: "Hyderabad",
       state: "Telangana",
@@ -262,7 +268,7 @@ async function main() {
           },
         },
         timeline: {
-          create: { type: "JOINED", title: "Joined GMR Engineering and Automation", happenedAt: new Date(e.join) },
+          create: { type: "JOINED", title: "Joined GMR", happenedAt: new Date(e.join) },
         },
       },
     });
@@ -283,11 +289,6 @@ async function main() {
       await prisma.employee.update({ where: { id: createdEmps[e.code] }, data: { managerId: createdEmps[e.managerCode] } });
     }
   }
-
-  await prisma.employee.update({
-    where: { id: createdEmps.EMP001 },
-    data: { userId: users.MANAGER.id },
-  });
 
   const casual = leaveTypes.find((t) => t.code === "CASUAL")!;
   await prisma.leaveRequest.create({
@@ -342,6 +343,36 @@ async function main() {
         })),
       });
     }
+  }
+
+  await prisma.attendanceRule.create({ data: { name: "Default", allowManualOverride: true } });
+  const hydSite = await prisma.site.create({
+    data: {
+      siteName: "Hyderabad Project Site",
+      address: "Hyderabad Project Site, Telangana",
+      latitude: 17.4,
+      longitude: 78.48,
+      allowedRadius: 100,
+    },
+  });
+  for (const [i, code] of Object.keys(createdEmps).entries()) {
+    await prisma.employeeHomeLocation.create({
+      data: {
+        employeeId: createdEmps[code],
+        address: "Hyderabad, Telangana",
+        latitude: 17.385 + i * 0.0008,
+        longitude: 78.4867 + i * 0.0004,
+        allowedRadius: 100,
+      },
+    });
+    await prisma.employeeSiteAssignment.create({
+      data: {
+        employeeId: createdEmps[code],
+        siteId: hydSite.id,
+        startDate: new Date("2026-01-01"),
+        status: "ACTIVE",
+      },
+    });
   }
 
   await seedMonth(2026, 7);

@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "PeoplePay Attendance",
+    "slug": "peoplepay-attendance",
+    "scheme": "peoplepay",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        { "locationWhenInUsePermission": "PeoplePay needs your location to verify Punch In at home and Punch Out at site." }
+      ],
+      [
+        "expo-camera",
+        { "cameraPermission": "PeoplePay needs the camera for a live attendance selfie." }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Location is required for attendance geofencing.",
+        "NSCameraUsageDescription": "Camera is required for a live punch selfie."
+      }
+    },
+    "android": {
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA"],
+      "config": {
+        "googleMaps": { "apiKey": "${GOOGLE_MAPS_ANDROID_KEY}" }
+      }
+    },
+    "extra": {
+      "apiUrl": "http://192.168.0.174:4000"
+    }
+  }
+}

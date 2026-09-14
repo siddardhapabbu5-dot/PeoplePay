@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api, download } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { fullName, money } from "@/lib/utils";
 import { Button, Card, ConfirmDialog, EmployeeAvatar, Input, LoadingState, Modal, Pagination, Select, StatusBadge } from "@/components/ui";
+import { PunchCard } from "@/components/punch-card";
 import { toast } from "sonner";
 
 export function EmployeesPage() {
@@ -23,7 +25,7 @@ export function EmployeesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Employees</h1>
-          <p className="text-sm text-slate-500">Master data including GMR July 2026 staff</p>
+          <p className="text-sm text-slate-500">GMR staff master, including July 2026 payroll employees</p>
         </div>
         <div className="flex gap-2">
           <Button variant="ghost" onClick={() => download("/api/employees/export", "employees.xlsx")}>Export Excel</Button>
@@ -181,18 +183,34 @@ function Field({ label, children, wide }: { label: string; children: React.React
   return <label className={`text-sm ${wide ? "sm:col-span-2" : ""}`}>{label}<div className="mt-1">{children}</div></label>;
 }
 
-const TABS = ["Overview", "Personal", "Employment", "Attendance", "Leave", "Salary", "Documents", "Expenses", "Loans", "Payslips", "Tax"];
+const ADMIN_TABS = ["Overview", "Personal", "Employment", "Attendance", "Leave", "Salary", "Documents", "Expenses", "Loans", "Payslips", "Tax"];
+const STAFF_TABS = ["Overview", "Attendance", "Personal", "Employment", "Leave", "Salary", "Documents", "Expenses", "Loans", "Payslips", "Tax"];
 
 export function EmployeeProfilePage() {
   const { id } = useParams();
-  const [tab, setTab] = useState("Overview");
+  const [params] = useSearchParams();
+  const { user } = useAuth();
+  const requested = params.get("tab");
+  const [tab, setTab] = useState(requested === "salary" ? "Salary" : requested === "attendance" ? "Attendance" : "Overview");
   const [emp, setEmp] = useState<any>(null);
+  const [monthRows, setMonthRows] = useState<any[] | null>(null);
+  const isStaff = user?.role === "EMPLOYEE" || localStorage.getItem("peoplepay_portal") === "staff";
+  const ownProfile = !!user?.employee && user.employee.id === id;
+  const tabs = isStaff ? STAFF_TABS : ADMIN_TABS;
   useEffect(() => { api(`/api/employees/${id}`).then(setEmp); }, [id]);
+  useEffect(() => {
+    if (tab !== "Attendance") return;
+    const now = new Date();
+    const from = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1)).toISOString().slice(0, 10);
+    const to = new Date().toISOString().slice(0, 10);
+    api<any[]>(`/api/attendance?from=${from}&to=${to}&employeeId=${id}`).then(setMonthRows).catch(() => setMonthRows([]));
+  }, [tab, id]);
   if (!emp) return <LoadingState />;
   const salary = emp.salaries?.[0];
 
   return (
     <div className="space-y-4">
+      {ownProfile && <PunchCard />}
       <Card>
         <div className="flex flex-wrap items-center gap-4">
           <EmployeeAvatar name={fullName(emp)} src={emp.photoPath} />
@@ -201,10 +219,10 @@ export function EmployeeProfilePage() {
             <p className="text-sm text-slate-500">{emp.employeeCode} · {emp.designation?.name} · {emp.department?.name}</p>
           </div>
           <StatusBadge status={emp.status} />
-          <Link className="text-sm text-indigo-700" to="/employees">Back to list</Link>
+          {!isStaff && <Link className="text-sm text-indigo-700" to="/employees">Back to list</Link>}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button key={t} onClick={() => setTab(t)} className={`rounded-full px-3 py-1 text-sm ${tab === t ? "bg-indigo-700 text-white" : "bg-slate-100 text-slate-600"}`}>{t}</button>
           ))}
         </div>
@@ -248,6 +266,34 @@ export function EmployeeProfilePage() {
           <KV label="Work location" value={emp.workLocation} />
         </Card>
       )}
+      {tab === "Attendance" && (
+        <Card>
+          <h3 className="mb-3 font-semibold">This month</h3>
+          {!monthRows ? <LoadingState /> : monthRows.length === 0 ? (
+            <p className="text-sm text-slate-500">No attendance rows yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="text-xs uppercase text-slate-500">
+                  <tr>{["Date", "In", "Out", "Hours", "OT", "Status"].map((h) => <th key={h} className="px-3 py-2 text-left">{h}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {monthRows.slice(0, 40).map((r) => (
+                    <tr key={r.id} className="border-t border-slate-100">
+                      <td className="px-3 py-2">{r.date?.slice(0, 10)}</td>
+                      <td className="px-3 py-2">{r.punchIn ?? "—"}</td>
+                      <td className="px-3 py-2">{r.punchOut ?? "—"}</td>
+                      <td className="px-3 py-2">{Number(r.workingHours ?? 0).toFixed(2)}</td>
+                      <td className="px-3 py-2">{r.overtimeMin ?? 0}m</td>
+                      <td className="px-3 py-2"><StatusBadge status={r.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
       {tab === "Salary" && (
         <Card>
           {salary ? (
@@ -267,7 +313,7 @@ export function EmployeeProfilePage() {
           {emp.documents?.length ? emp.documents.map((d: any) => <div key={d.id}>{d.type} · {d.fileName}</div>) : <p className="text-sm text-slate-400">No documents uploaded yet.</p>}
         </Card>
       )}
-      {["Attendance", "Leave", "Expenses", "Loans", "Payslips", "Tax"].includes(tab) && (
+      {["Leave", "Expenses", "Loans", "Payslips", "Tax"].includes(tab) && (
         <Card>
           <p className="text-sm text-slate-600">Open the {tab.toLowerCase()} module filtered for this employee.</p>
           <div className="mt-3">

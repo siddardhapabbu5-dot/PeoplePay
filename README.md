@@ -1,6 +1,6 @@
 # PeoplePay
 
-Enterprise payroll + HRMS for GMR Engineering and Automation. Built from the July 2026 salary workbook and the company leave/attendance policy.
+Enterprise payroll + HRMS for GMR. Built from the July 2026 salary workbook and the company leave/attendance policy.
 
 ## Stack
 
@@ -19,8 +19,33 @@ cd ..
 npm run dev
 ```
 
-- App: http://localhost:5173
+- Admin web: http://localhost:5173
 - API: http://localhost:4000
+- Staff web: http://localhost:5173/staff-login
+- Mobile: see below
+
+## Mobile attendance (Expo)
+
+Punch **in only from approved home GPS**. Punch **out only from assigned site GPS**. Live selfie required. Server recalculates distance (Haversine) and uses server time.
+
+```bash
+cd mobile
+npm install
+# Point the phone at your PC. Set your LAN IP:
+# Windows: ipconfig → IPv4
+set EXPO_PUBLIC_API_URL=http://YOUR_LAN_IP:4000
+npx expo start
+```
+
+Scan the QR code with Expo Go. Demo staff: `EMP002` / `Admin@123`.
+
+Home geofence demo: Hyderabad 17.3850, 78.4867 (100m). Site: Hyderabad Project Site 17.4000, 78.4800 (100m).
+
+Admin screens: `/admin/locations` and `/admin/attendance`.
+
+Google Maps keys go in `.env` (`GOOGLE_MAPS_ANDROID_KEY`, `GOOGLE_MAPS_IOS_KEY`) — never commit them.
+
+Full API list: `docs/API.md`.
 
 ## Demo logins
 

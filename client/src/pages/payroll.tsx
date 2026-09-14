@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, download } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { fullName, money2, monthLabel } from "@/lib/utils";
 import { Button, Card, ConfirmDialog, LoadingState, Select, StatusBadge } from "@/components/ui";
 import { toast } from "sonner";
@@ -71,7 +72,7 @@ export function PayrollPage() {
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-sm">Company
-            <Select><option>GMR Engineering and Automation</option></Select>
+            <Select><option>GMR</option></Select>
           </label>
           <label className="text-sm">Entity
             <Select><option>GMR India</option></Select>
@@ -188,35 +189,56 @@ export function PayrollPage() {
 }
 
 export function SalaryPage() {
+  const { user } = useAuth();
+  const [own, setOwn] = useState<any>(null);
   const [components, setComponents] = useState<any[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
   useEffect(() => {
+    if (user?.employee?.id) {
+      api<any>(`/api/salary/employee/${user.employee.id}`).then(setOwn).catch(() => setOwn(null));
+    }
     api<any[]>("/api/salary/components").then(setComponents).catch(() => setComponents([]));
     api<any[]>("/api/salary/structures").then(setStructures).catch(() => setStructures([]));
-  }, []);
+  }, [user?.employee?.id]);
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Salary structures</h1>
-      <Card>
-        <h3 className="mb-3 font-semibold">Components</h3>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {components.map((c) => (
-            <div key={c.id} className="rounded-xl border border-slate-100 p-3 text-sm">
-              <div className="font-medium">{c.name}</div>
-              <div className="text-slate-500">{c.type} · {c.calcType}</div>
-            </div>
-          ))}
-        </div>
-      </Card>
-      {structures.map((s) => (
-        <Card key={s.id}>
-          <h3 className="font-semibold">{s.name}</h3>
-          <p className="text-sm text-slate-500">Effective {s.effectiveFrom?.slice(0, 10)}</p>
-          <ul className="mt-2 text-sm">
-            {s.items?.map((i: any) => <li key={i.id}>{i.component?.name} — {i.calcType} {Number(i.amount) || `${Number(i.percentage)}%`}</li>)}
-          </ul>
+      <h1 className="text-2xl font-semibold">{user?.role === "EMPLOYEE" || localStorage.getItem("peoplepay_portal") === "staff" ? "My salary" : "Salary structures"}</h1>
+      {own?.current && (
+        <Card>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><div className="text-sm text-slate-500">Monthly CTC</div><div className="text-xl font-semibold">{money2(own.current.ctc)}</div></div>
+            <div><div className="text-sm text-slate-500">Gross</div><div className="text-xl font-semibold">{money2(own.current.grossSalary)}</div></div>
+            <div className="text-sm">Basic {money2(own.current.basic)}</div>
+            <div className="text-sm">HRA {money2(own.current.hra)}</div>
+            <div className="text-sm">Conveyance {money2(own.current.conveyance)}</div>
+            <div className="text-sm">Special {money2(own.current.special)}</div>
+          </div>
         </Card>
-      ))}
+      )}
+      {user?.role !== "EMPLOYEE" && localStorage.getItem("peoplepay_portal") !== "staff" && (
+        <>
+          <Card>
+            <h3 className="mb-3 font-semibold">Components</h3>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {components.map((c) => (
+                <div key={c.id} className="rounded-xl border border-slate-100 p-3 text-sm">
+                  <div className="font-medium">{c.name}</div>
+                  <div className="text-slate-500">{c.type} · {c.calcType}</div>
+                </div>
+              ))}
+            </div>
+          </Card>
+          {structures.map((s) => (
+            <Card key={s.id}>
+              <h3 className="font-semibold">{s.name}</h3>
+              <p className="text-sm text-slate-500">Effective {s.effectiveFrom?.slice(0, 10)}</p>
+              <ul className="mt-2 text-sm">
+                {s.items?.map((i: any) => <li key={i.id}>{i.component?.name} — {i.calcType} {Number(i.amount) || `${Number(i.percentage)}%`}</li>)}
+              </ul>
+            </Card>
+          ))}
+        </>
+      )}
     </div>
   );
 }

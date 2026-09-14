@@ -1,23 +1,44 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
-import { Button, Input } from "@/components/ui";
 import { toast } from "sonner";
 
+const REMEMBER_KEY = "peoplepay_remember_login";
+
 export function LoginPage() {
+  const location = useLocation();
+  const staff = location.pathname.startsWith("/staff");
+  return <LoginForm key={staff ? "staff" : "admin"} portal={staff ? "staff" : "admin"} />;
+}
+
+function LoginForm({ portal }: { portal: "admin" | "staff" }) {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("superadmin@peoplepay.local");
-  const [password, setPassword] = useState("Admin@123");
+  const isStaff = portal === "staff";
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(REMEMBER_KEY);
+    if (saved) {
+      setIdentifier(saved);
+      setRemember(true);
+    }
+  }, [isStaff]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      await login(email, password);
-      toast.success("Welcome to PeoplePay");
+      if (remember) localStorage.setItem(REMEMBER_KEY, identifier);
+      else localStorage.removeItem(REMEMBER_KEY);
+      await login(identifier, password, portal);
+      toast.success(isStaff ? "Welcome to staff self-service" : "Welcome to PeoplePay");
       nav("/");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Login failed");
@@ -28,23 +49,52 @@ export function LoginPage() {
 
   return (
     <AuthShell>
-      <h1 className="text-2xl font-semibold text-slate-900">Sign in</h1>
-      <p className="mt-1 text-sm text-slate-500">Payroll and HR for GMR Engineering and Automation</p>
-      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-        <label className="block text-sm font-medium">Email
-          <Input className="mt-1" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-        </label>
-        <label className="block text-sm font-medium">Password
-          <Input className="mt-1" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
-        </label>
-        <div className="flex justify-end">
-          <Link to="/forgot-password" className="text-sm text-indigo-700">Forgot password?</Link>
-        </div>
-        <Button className="w-full" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
-      </form>
-      <div className="mt-6 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-        Demo password Admin@123 — superadmin@, hr@, payroll@, finance@, manager@, achyuth@peoplepay.local
+      <div className="login-tabs">
+        <Link to="/login" className={!isStaff ? "on" : ""}>Admin</Link>
+        <Link to="/staff-login" className={isStaff ? "on" : ""}>Staff</Link>
       </div>
+      <form className="login-form" onSubmit={onSubmit}>
+        <label className="login-field">
+          <Mail size={16} strokeWidth={1.75} />
+          <input
+            name={isStaff ? "employeeCode" : "email"}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            autoComplete={isStaff ? "off" : "username"}
+            placeholder={isStaff ? "Employee ID" : "Email ID"}
+            required
+          />
+        </label>
+        <label className="login-field">
+          <Lock size={16} strokeWidth={1.75} />
+          <input
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            type={showPassword ? "text" : "password"}
+            autoComplete="current-password"
+            placeholder="Password"
+            required
+          />
+          <button
+            type="button"
+            className="login-eye"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            onClick={() => setShowPassword((v) => !v)}
+          >
+            {showPassword ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
+          </button>
+        </label>
+        <div className="login-meta">
+          <label className="login-remember">
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
+            Remember me
+          </label>
+          <Link to="/forgot-password">Forgot password?</Link>
+        </div>
+        <button className="login-submit" disabled={busy} type="submit">
+          {busy ? "SIGNING IN…" : "LOGIN"}
+        </button>
+      </form>
     </AuthShell>
   );
 }
@@ -59,31 +109,29 @@ export function ForgotPasswordPage() {
   }
   return (
     <AuthShell>
-      <h1 className="text-2xl font-semibold">Reset password</h1>
-      <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-        <Input type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <Button className="w-full">Send reset instructions</Button>
+      <form className="login-form" onSubmit={onSubmit}>
+        <label className="login-field">
+          <Mail size={16} strokeWidth={1.75} />
+          <input type="email" placeholder="Email ID" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <button className="login-submit" type="submit">SEND RESET</button>
       </form>
-      {msg && <p className="mt-4 text-sm text-emerald-700">{msg}</p>}
-      <Link to="/login" className="mt-6 inline-block text-sm text-indigo-700">Back to sign in</Link>
+      {msg && <p className="login-msg">{msg}</p>}
+      <Link to="/login" className="login-back">Back to login</Link>
     </AuthShell>
   );
 }
 
 function AuthShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div className="hidden flex-col justify-between bg-indigo-800 p-10 text-white lg:flex">
-        <div className="text-2xl font-semibold">PeoplePay</div>
-        <div>
-          <div className="text-4xl font-semibold leading-tight">Payroll that follows attendance, leave and policy.</div>
-          <p className="mt-4 max-w-md text-indigo-100">Guided payroll, Indian statutory rules you can update, and employee self-service — without locking a run before approval.</p>
+    <div className="login-page">
+      <div className="login-card">
+        <div className="login-avatar" aria-hidden>
+          <User size={52} strokeWidth={1.25} />
         </div>
-        <div className="text-sm text-indigo-200">GMR Engineering and Automation</div>
+        {children}
       </div>
-      <div className="flex items-center justify-center p-8">
-        <div className="w-full max-w-md">{children}</div>
-      </div>
+      <div className="login-brand">PeoplePay · GMR</div>
     </div>
   );
 }

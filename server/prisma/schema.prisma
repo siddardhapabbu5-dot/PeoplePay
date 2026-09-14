@@ -48,6 +48,28 @@ enum AttendanceStatus {
   HOLIDAY
   WEEK_OFF
   WORK_FROM_HOME
+  MISSING_PUNCH
+  LATE
+  PAID_LEAVE
+  UNPAID_LEAVE
+}
+
+enum PunchType {
+  IN
+  OUT
+}
+
+enum LocationType {
+  HOME
+  SITE
+}
+
+enum VerificationStatus {
+  VERIFIED
+  OUTSIDE_GEOFENCE
+  POOR_GPS
+  SUSPICIOUS
+  PENDING_REVIEW
 }
 
 enum LeaveCode {
@@ -272,6 +294,10 @@ model Employee {
   loans            Loan[]
   taxDeclarations  TaxDeclaration[]
   timeline         EmployeeTimeline[]
+  homeLocation     EmployeeHomeLocation?
+  siteAssignments  EmployeeSiteAssignment[]
+  punches          PunchRecord[]
+  breaks           BreakRecord[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 
@@ -395,12 +421,109 @@ model Attendance {
   lateMin      Int              @default(0)
   lateDeduction Decimal         @default(0) @db.Decimal(14, 2)
   otAmount     Decimal          @default(0) @db.Decimal(14, 2)
+  breakMinutes Int              @default(0)
+  workingMinutes Int            @default(0)
+  earlyLeavingMinutes Int       @default(0)
+  approved     Boolean          @default(true)
   status       AttendanceStatus
   source       String           @default("MANUAL")
   notes        String?
+  punches      PunchRecord[]
+  breaks       BreakRecord[]
 
   @@unique([employeeId, date])
   @@index([date])
+}
+
+model Site {
+  id            String       @id @default(cuid())
+  siteName      String
+  address       String?
+  latitude      Float
+  longitude     Float
+  allowedRadius Int          @default(100)
+  status        RecordStatus @default(ACTIVE)
+  assignments   EmployeeSiteAssignment[]
+  punches       PunchRecord[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model EmployeeHomeLocation {
+  id            String   @id @default(cuid())
+  employeeId    String   @unique
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  address       String
+  latitude      Float
+  longitude     Float
+  allowedRadius Int      @default(100)
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model EmployeeSiteAssignment {
+  id        String       @id @default(cuid())
+  employeeId String
+  employee  Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  siteId    String
+  site      Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  startDate DateTime
+  endDate   DateTime?
+  status    RecordStatus @default(ACTIVE)
+
+  @@index([employeeId, status])
+}
+
+model PunchRecord {
+  id                 String             @id @default(cuid())
+  employeeId         String
+  employee           Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendanceId       String
+  attendance         Attendance         @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  type               PunchType
+  timestamp          DateTime           @default(now())
+  latitude           Float
+  longitude          Float
+  gpsAccuracy        Float?
+  address            String?
+  locationType       LocationType
+  siteId             String?
+  site               Site?              @relation(fields: [siteId], references: [id])
+  distance           Float
+  selfiePath         String?
+  deviceId           String?
+  ipAddress          String?
+  verificationStatus VerificationStatus @default(VERIFIED)
+  createdAt          DateTime           @default(now())
+
+  @@index([employeeId, timestamp])
+}
+
+model BreakRecord {
+  id           String      @id @default(cuid())
+  employeeId   String
+  employee     Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendanceId String
+  attendance   Attendance  @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+  breakStart   DateTime
+  breakEnd     DateTime?
+  breakMinutes Int         @default(0)
+}
+
+model AttendanceRule {
+  id                   String  @id @default(cuid())
+  name                 String  @unique @default("Default")
+  graceMinutes         Int     @default(10)
+  requiredMinutes      Int     @default(480)
+  halfDayMinutes       Int     @default(240)
+  maxBreakMinutes      Int     @default(60)
+  otAfterMinutes       Int     @default(480)
+  geofenceRadius       Int     @default(100)
+  photoRequired        Boolean @default(true)
+  locationRequired     Boolean @default(true)
+  allowManualOverride  Boolean @default(true)
+  maxGpsAccuracyMetres Int     @default(80)
 }
 
 model AttendanceRegularization {

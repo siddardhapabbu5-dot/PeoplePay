@@ -24,7 +24,11 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   }
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(data?.error || data?.message || "Request failed");
+  if (!res.ok) {
+    const err = data?.error;
+    const message = typeof err === "string" ? err : data?.message || "Request failed";
+    throw new Error(message);
+  }
   return data as T;
 }
 

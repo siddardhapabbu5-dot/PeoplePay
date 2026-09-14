@@ -12,6 +12,8 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, roles: ["SUPER_ADMIN", "HR_ADMIN", "PAYROLL_ADMIN", "MANAGER", "FINANCE", "EMPLOYEE"] },
   { to: "/employees", label: "Employees", icon: Users, roles: ["SUPER_ADMIN", "HR_ADMIN", "PAYROLL_ADMIN", "MANAGER", "FINANCE"] },
   { to: "/attendance", label: "Attendance", icon: CalendarDays, roles: ["SUPER_ADMIN", "HR_ADMIN", "PAYROLL_ADMIN", "MANAGER", "EMPLOYEE"] },
+  { to: "/admin/attendance", label: "Live punches", icon: CalendarDays, roles: ["SUPER_ADMIN", "HR_ADMIN", "PAYROLL_ADMIN"] },
+  { to: "/admin/locations", label: "Locations", icon: Building2, roles: ["SUPER_ADMIN", "HR_ADMIN"] },
   { to: "/leave", label: "Leave", icon: ClipboardCheck, roles: ["SUPER_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"] },
   { to: "/payroll", label: "Payroll", icon: IndianRupee, roles: ["SUPER_ADMIN", "PAYROLL_ADMIN", "FINANCE", "HR_ADMIN"] },
   { to: "/salary", label: "Salary", icon: Wallet, roles: ["SUPER_ADMIN", "PAYROLL_ADMIN", "HR_ADMIN", "FINANCE", "EMPLOYEE"] },
@@ -24,12 +26,20 @@ const NAV = [
   { to: "/settings", label: "Settings", icon: Settings, roles: ["SUPER_ADMIN", "HR_ADMIN", "PAYROLL_ADMIN"] },
 ];
 
-const MOBILE = [
+const MOBILE_ADMIN = [
   { to: "/", label: "Home", icon: Home },
   { to: "/employees", label: "People", icon: Users },
   { to: "/attendance", label: "Attend", icon: CalendarDays },
   { to: "/leave", label: "Leave", icon: ClipboardCheck },
   { to: "/payroll", label: "Payroll", icon: IndianRupee },
+];
+
+const MOBILE_STAFF = [
+  { to: "/", label: "Home", icon: Home },
+  { to: "/attendance", label: "Punch", icon: CalendarDays },
+  { to: "/leave", label: "Leave", icon: ClipboardCheck },
+  { to: "/payslips", label: "Payslip", icon: FileSpreadsheet },
+  { to: "/salary", label: "Salary", icon: Wallet },
 ];
 
 export function AppLayout() {
@@ -38,7 +48,9 @@ export function AppLayout() {
   const [profile, setProfile] = useState(false);
   const loc = useLocation();
   const navigate = useNavigate();
-  const items = NAV.filter((n) => can(...(n.roles as never[])));
+  const isStaff = user?.role === "EMPLOYEE" || localStorage.getItem("peoplepay_portal") === "staff";
+  const items = NAV.filter((n) => can(...(n.roles as never[]))).filter((n) => !(isStaff && ["/employees", "/admin/attendance", "/admin/locations", "/payroll", "/compliance", "/reports", "/approvals", "/settings"].includes(n.to)));
+  const mobile = isStaff ? MOBILE_STAFF : MOBILE_ADMIN;
   const crumbs = useMemo(() => loc.pathname.split("/").filter(Boolean), [loc.pathname]);
 
   return (
@@ -51,7 +63,7 @@ export function AppLayout() {
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-700 text-white font-bold">P</div>
           <div>
             <div className="font-semibold text-slate-900">PeoplePay</div>
-            <div className="text-[11px] text-slate-500">Payroll + HRMS</div>
+            <div className="text-[11px] text-slate-500">{isStaff ? "GMR staff self-service" : "GMR · Payroll + HRMS"}</div>
           </div>
           <button className="ml-auto lg:hidden" onClick={() => setOpen(false)}><X size={18} /></button>
         </div>
@@ -122,7 +134,7 @@ export function AppLayout() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white md:hidden">
-        {MOBILE.map((m) => {
+        {mobile.map((m) => {
           const Icon = m.icon;
           const active = m.to === "/" ? loc.pathname === "/" : loc.pathname.startsWith(m.to);
           return (

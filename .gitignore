@@ -1,4 +1,9 @@
 node_modules
+.expo
+mobile/.expo
+mobile/node_modules
+dist
+uploads
 dist
 build
 .env
@@ -13,3 +18,6 @@ server/dist
 server/uploads
 .turbo
 *.tsbuildinfo
+GMR-Vinayaka-Chavithi-HQ.png
+gmr-vinayaka-chavithi-status.png
+scripts/export-status-hq.py

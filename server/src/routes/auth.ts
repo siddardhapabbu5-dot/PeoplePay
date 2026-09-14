@@ -6,20 +6,71 @@ import { requireAuth, signToken } from "../middleware/auth.js";
 
 export const authRouter = Router();
 
+function sessionEmployee(employee: {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeCode: string;
+  photoPath: string | null;
+  department: { name: string } | null;
+  designation: { name: string } | null;
+} | null) {
+  if (!employee) return null;
+  return {
+    id: employee.id,
+    name: `${employee.firstName} ${employee.lastName}`.trim(),
+    code: employee.employeeCode,
+    department: employee.department?.name,
+    designation: employee.designation?.name,
+    photoPath: employee.photoPath,
+  };
+}
+
 authRouter.post("/login", async (req, res) => {
   const parsed = z.object({
-    email: z.string().email(),
+    email: z.string().optional(),
+    login: z.string().optional(),
     password: z.string().min(1),
+    portal: z.enum(["admin", "staff"]).optional(),
   }).safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Valid email and password required" });
+  if (!parsed.success) return res.status(400).json({ error: "Employee ID or email and password required" });
 
-  const user = await prisma.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() },
-    include: { employee: { include: { department: true, designation: true } } },
-  });
+  const identifier = (parsed.data.login || parsed.data.email || "").trim();
+  if (!identifier) return res.status(400).json({ error: "Enter your employee ID or email" });
+
+  const include = { employee: { include: { department: true, designation: true } } } as const;
+  let user = identifier.includes("@")
+    ? await prisma.user.findFirst({
+        where: { email: identifier.toLowerCase(), status: "ACTIVE" },
+        include,
+      })
+    : null;
+
+  if (!user) {
+    const employee = await prisma.employee.findFirst({
+      where: {
+        OR: [
+          { employeeCode: { equals: identifier, mode: "insensitive" } },
+          { personalEmail: { equals: identifier.toLowerCase(), mode: "insensitive" } },
+        ],
+      },
+      include: { user: { include } },
+    });
+    user = employee?.user ?? null;
+    if (!user && employee) {
+      return res.status(401).json({ error: "This employee does not have a login yet. Ask HR to enable staff access." });
+    }
+  }
+
   if (!user || user.status !== "ACTIVE") return res.status(401).json({ error: "Invalid credentials" });
   const ok = await bcrypt.compare(parsed.data.password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
+
+  if (parsed.data.portal === "staff" && !user.employee) {
+    return res.status(403).json({
+      error: "This is an admin account. On Staff sign-in use an employee ID such as EMP002, then password Admin@123.",
+    });
+  }
 
   const token = signToken({
     id: user.id,
@@ -34,16 +85,7 @@ authRouter.post("/login", async (req, res) => {
       id: user.id,
       email: user.email,
       role: user.role,
-      employee: user.employee
-        ? {
-            id: user.employee.id,
-            name: `${user.employee.firstName} ${user.employee.lastName}`.trim(),
-            code: user.employee.employeeCode,
-            department: user.employee.department?.name,
-            designation: user.employee.designation?.name,
-            photoPath: user.employee.photoPath,
-          }
-        : null,
+      employee: sessionEmployee(user.employee),
     },
   });
 });
@@ -66,15 +108,6 @@ authRouter.get("/me", requireAuth, async (req, res) => {
     id: user.id,
     email: user.email,
     role: user.role,
-    employee: user.employee
-      ? {
-          id: user.employee.id,
-          name: `${user.employee.firstName} ${user.employee.lastName}`.trim(),
-          code: user.employee.employeeCode,
-          department: user.employee.department?.name,
-          designation: user.employee.designation?.name,
-          photoPath: user.employee.photoPath,
-        }
-      : null,
+    employee: sessionEmployee(user.employee),
   });
 });
