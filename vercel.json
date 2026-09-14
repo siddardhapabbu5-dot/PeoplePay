@@ -1,0 +1,9 @@
+{
+  "buildCommand": "npm run build --workspace=client",
+  "installCommand": "npm install",
+  "outputDirectory": "client/dist",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/((?!assets/).*)", "destination": "/index.html" }
+  ]
+}
